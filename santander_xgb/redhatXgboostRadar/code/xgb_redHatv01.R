@@ -1,9 +1,16 @@
-library(data.table)
+library(dtplyr)
 library(FeatureHashing)
 library(xgboost)
-library(dplyr)
 library(Matrix)
 
+#http://blog.kaggle.com/2016/11/03/red-hat-business-value-competition-1st-place-winners-interview-darius-barusauskas/
+#https://github.com/ledell/useR-machine-learning-tutorial/blob/master/gradient-boosting-machines.Rmd
+
+WIN <- TRUE
+if (WIN) {setwd("C:/repos/eclipse/santander_xgb/redhatXgboostRadar/code/")}else
+{setwd('~/dataScience/workspace/santander/code/xgboostRadar')}
+
+# data preparation  -------------------------------------------------------------------
 
 train=fread('../input/act_train.csv') %>% as.data.frame()
 test=fread('../input/act_test.csv') %>% as.data.frame()
@@ -46,21 +53,26 @@ gc()
 D=rbind(d1,d2)
 D$i=1:dim(D)[1]
 
+# uncomment this for CV run  -------------------------------------------------------------------
 
-###uncomment this for CV run
-#set.seed(120)
-#unique_p <- unique(d1$people_id)
-#valid_p  <- unique_p[sample(1:length(unique_p), 40000)]
-#valid <- which(d1$people_id %in% valid_p)
-#model <- (1:length(d1$people_id))[-valid]
+set.seed(120)
+unique_p <- unique(d1$people_id)
+valid_p  <- unique_p[sample(1:length(unique_p), 40000)]
+
+valid <- which(d1$people_id %in% valid_p)
+model <- (1:length(d1$people_id))[-valid]
+###uncomment 
+
 
 test_activity_id=test$activity_id
 rm(train,test,d1,d2);gc()
 
+# sparse creation -------------------------------------------------------------------
 
 char.cols=c('activity_category','people_group_1',
             'char_1','char_2','char_3','char_4','char_5','char_6','char_7','char_8','char_9','char_10',
             'people_char_2','people_char_3','people_char_4','people_char_5','people_char_6','people_char_7','people_char_8','people_char_9')
+
 for (f in char.cols) {
   if (class(D[[f]])=="character") {
     levels <- unique(c(D[[f]]))
@@ -128,8 +140,8 @@ train.sparse=D.sparse[1:row.train,]
 test.sparse=D.sparse[(row.train+1):nrow(D.sparse),]
 
 
+# Hash train to sparse dmatrix X_train  -------------------------------------------------------------------
 
-# Hash train to sparse dmatrix X_train
 dtrain  <- xgb.DMatrix(train.sparse, label = Y)
 dtest  <- xgb.DMatrix(test.sparse)
 
@@ -157,17 +169,18 @@ m1 <- xgb.train(data = dmodel
                 , print_every_n = 10)
 
 #[300]	valid-auc:0.979167	model-auc:0.990326
+###uncomment 
 
 set.seed(120)
 m2 <- xgb.train(data = dtrain, 
-                param, nrounds = 305,
+                param, nrounds =  300,
                 watchlist = list(train = dtrain),
                 print_every_n = 10)
 
 # Predict
 out <- predict(m2, dtest)
 sub <- data.frame(activity_id = test_activity_id, outcome = out)
-write.csv(sub, file = "model_sub.csv", row.names = F)
+write.csv(sub, file = "red_hat_model_sub.csv", row.names = F)
 
 #0.98035
 
