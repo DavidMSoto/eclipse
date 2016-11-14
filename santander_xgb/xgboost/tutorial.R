@@ -3,6 +3,7 @@
 # Author: davidmonteagudo
 ###############################################################################
 
+#http://datascienceplus.com/eclipse-an-alternative-to-rstudio-part-2/
 
 #http://xgboost.readthedocs.io/en/latest/R-package/xgboostPresentation.html#
 
@@ -27,6 +28,7 @@ library(Matrix)
 
 WIN <- TRUE
 if (WIN) {setwd("c:/repos/eclipse/santander_xgb/santander/code/")}
+
 
 
 suppressWarnings(train <- fread('../input/train_ver2.csv', nrows = 1000000))

@@ -11,13 +11,14 @@ library(Matrix)
 
 
 WIN <- TRUE
-if (WIN) {setwd("c:/repos/repo/santander/code/")}
+if (WIN) {setwd("c:/repos/repo/santander/code/")} else
+	setwd('~/git/santander_xgb/santander_xgb/santander/code/')
 
 # data preparation  -------------------------------------------------------------------
-
+system('ls -l ../input')
 
 # load data
-suppressWarnings(train <- fread('../input/train2.csv', nrows = 1000000))
+suppressWarnings(train <- fread('../input/train_ver2.csv', nrows = 1000000))
 train[, submission := FALSE] # incluimos columna submision
 
 suppressWarnings(test <- fread('../input/test_ver2.csv', nrows = 10000))
