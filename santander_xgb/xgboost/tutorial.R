@@ -24,23 +24,26 @@ library(Matrix)
 
 
 #Seems like they want us to predict 6/2016 products, excluding those purchased in 5/2016
+#sparse_matrix <- sparse.model.matrix(response ~ .-1, data = train)
 
 
 WIN <- TRUE
-if (WIN) {setwd("c:/repos/eclipse/santander_xgb/santander/code/")}
+if (WIN) {setwd("c:/repos/eclipse/santander_xgb/santander/code/")}else
+	setwd('~/git/santander_xgb/santander_xgb/santander/code/')
 
 
-
-suppressWarnings(train <- fread('../input/train_ver2.csv', nrows = 1000000))
-train[, response := FALSE] # incluimos columna submision
-output_vector = train[,response] == "Responder"
-
-sparse_matrix <- sparse.model.matrix(response ~ .-1, data = train)
+suppressWarnings(df_train <- fread('../input/train_ver2.csv', nrows = 1000000))
+#train[, response := FALSE] # incluimos columna submision
 
 
+suppressWarnings(df_test <- fread('../input/test_ver2.csv', nrows = 10000))
+#test[, response := TRUE]   # incluimos columna submision
 
-suppressWarnings(test <- fread('../input/test_ver2.csv', nrows = 10000))
-test[, response := TRUE]   # incluimos columna submision
+
+# Loading labels of train data
+labels = df_train['labels']
+df_train = df_train[-grep('labels', colnames(df_train))]
+
 
 
 df_all = rbind(train,test, fill = TRUE)

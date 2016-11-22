@@ -10,7 +10,7 @@ library(Matrix)
 #Seems like they want us to predict 6/2016 products, excluding those purchased in 5/2016
 
 
-WIN <- TRUE
+WIN <- FALSE
 if (WIN) {setwd("c:/repos/repo/santander/code/")} else
 	setwd('~/git/santander_xgb/santander_xgb/santander/code/')
 
@@ -26,6 +26,8 @@ test[, submission := TRUE]   # incluimos columna submision
 
 #combine data
 data <- rbind(train, test, fill = TRUE)
+head(data)
+#convierte a fecha para ordenar
 data[, ':='(fecha_dato = as.Date(fecha_dato), fecha_alta = as.Date(fecha_alta))]
 setorder(data, ncodpers, fecha_dato)
 
@@ -33,10 +35,12 @@ setorder(data, ncodpers, fecha_dato)
 prod_cols <- colnames(data)[grep('^ind.*ult1$', colnames(data))]
 
 
-data[submission == FALSE, n_purch := 0] # nuevos clientes submision = true
+data[submission == FALSE, n_purch := 0] # test data n_purch = NA train data n_purch = 0
 
 
 # for each product calulate if it was bought in the given month
+
+# por cada producto se crean dos nuevas variables que indican si el cliente ha comprado un producto purch y si lo ha mantenido HAS ??
 
 for (col in prod_cols) { #not very efficient ...
   cat(col)
@@ -45,10 +49,10 @@ for (col in prod_cols) { #not very efficient ...
   while(!ok) { #ugly, but data.table throws me an error randomly 
     cat('.')
     try({
-      data[, (purch_var) := (get(col) * (!c(NA, get(col)[-.N]))), by = ncodpers]
-      data[fecha_alta == fecha_dato, (purch_var) := get(col)]
-      data[, (paste0('has_', col)) := c(NA, get(col)[-.N]), by = ncodpers]
-      data[get(purch_var) == 1, n_purch := n_purch + 1]
+      data[, (purch_var) := (get(col) * (!c(NA, get(col)[-.N]))), by = ncodpers]      	# 
+      data[fecha_alta == fecha_dato, (purch_var) := get(col)]							# 
+      data[, (paste0('has_', col)) := c(NA, get(col)[-.N]), by = ncodpers]				# 
+      data[get(purch_var) == 1, n_purch := n_purch + 1]									# 
       ok = TRUE
     }, silent = TRUE)
   }
@@ -58,10 +62,10 @@ for (col in prod_cols) { #not very efficient ...
 positive_m_frac <- data[,mean(n_purch > 0, na.rm = TRUE)] # fraction of customers who buy anything new
 
 # plot some stuff
-# suppressWarnings(
-# print(data[n_purch > 0,list(count = .N),by = n_purch])
-# ggplot(data[n_purch > 0, .(n_purch)], aes(x = n_purch)) + geom_bar()
-# ) 
+
+ print(data[n_purch > 0,list(count = .N),by = n_purch])
+ ggplot(data[n_purch > 0, .(n_purch)], aes(x = n_purch)) + geom_bar()
+
 
 # remove product cols (no more needed) and data where nothing new was bought
 melt_data <- data[(n_purch > 0) | (submission == TRUE), -prod_cols, with = FALSE]
@@ -92,10 +96,10 @@ print(melt_label[,list(n_purch = .N),by = purch])
 ggplot(melt_label, aes(x = fecha_dato, fill = purch)) + geom_bar()
 
 #melt numerical and categorical variables separately
-melt_num <- suppressWarnings(
-  melt(melt_data, id.vars = c(id_vars), measure.vars = c(num_vars)))
-melt_cat <- suppressWarnings(
-  melt(melt_data, id.vars = c(id_vars), measure.vars = c(cat_vars)))
+melt_num <- suppressWarnings(  melt(melt_data, id.vars = c(id_vars), measure.vars = c(num_vars)))
+melt_cat <- suppressWarnings(  melt(melt_data, id.vars = c(id_vars), measure.vars = c(cat_vars)))
+
+
 
 # assign column numbers for data
 num_columns <- unique(melt_num[,.(variable)])
@@ -113,7 +117,7 @@ cat('Test data:',
     nrow(test), '\n')
 
 
-# more data preparation and label encoding
+# more data preparation and label encoding - spare matrix creation
 get_data <- function(rows, label_coding = NULL) {
   rows[, row := 1:.N]
   rows <<- rows
@@ -161,21 +165,36 @@ param <-  list(
   num_class = n_class
 )
 
-#  uncomment this for CV run------------------------------------------------
-
-dmodel  <- xgb.DMatrix(train.sparse[model, ], label = Y[model])
-dvalid  <- xgb.DMatrix(train.sparse[valid, ], label = Y[valid])
+###uncomment
+###uncomment this for CV run from radar
 #
+dmodel  <- xgb.DMatrix(train_list$data , label = train_list$label)
+dvalid  <- xgb.DMatrix(test_list$data, label = test_list$label)
+
 set.seed(120)
 m1 <- xgb.train(data = dmodel
-                , param
-                , nrounds = 30
-                , watchlist = list(valid = dvalid, model = dmodel)
-                , early.stop.round = 20
-                , nthread=11
-                , print_every_n = 10)
+		, param
+		, nrounds = 500
+		, watchlist = list(test = dvalid, train = dmodel)
+		, early.stop.round = 20
+		, nthread=11
+		, print_every_n = 10)
 
-###uncomment this for CV run
+#[300]	valid-auc:0.979167	model-auc:0.990326
+
+set.seed(120)
+m2 <- xgb.train(data = dtrain, 
+		param, nrounds =  300,
+		watchlist = list(train = dtrain),
+		print_every_n = 10)
+
+# Predict
+out <- predict(m2, dtest)
+sub <- data.frame(activity_id = test_activity_id, outcome = out)
+write.csv(sub, file = "red_hat_model_sub.csv", row.names = F)
+###uncomment
+###uncomment 
+
 
 #  train model  -------------------------------------------------------------------
 model <- xgb.train(data = train,
@@ -216,9 +235,4 @@ MAP <- function(recom, data_list, at = 7) {
 }
 
 cat('MAP@7:', MAP(recom, test_list) * positive_m_frac, "\n")
-
-
-#  writing the solution   -------------------------------------------------------------------
-sub <- data.frame(activity_id = test_activity_id, outcome = out)
-write.csv(sub, file = "model_sub.csv", row.names = F)
 
