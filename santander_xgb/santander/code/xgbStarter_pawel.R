@@ -236,3 +236,9 @@ MAP <- function(recom, data_list, at = 7) {
 
 cat('MAP@7:', MAP(recom, test_list) * positive_m_frac, "\n")
 
+
+out <- predict(m2, dtest)
+sub <- data.frame(activity_id = test_activity_id, outcome = out)
+write.csv(sub, file = "red_hat_model_sub.csv", row.names = F)
+
+

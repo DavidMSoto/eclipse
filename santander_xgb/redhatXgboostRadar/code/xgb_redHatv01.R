@@ -1,14 +1,17 @@
-library(dtplyr)
+rm(list = ls())
+
+library(data.table)
 library(FeatureHashing)
 library(xgboost)
+library(dplyr)
 library(Matrix)
 
 #http://blog.kaggle.com/2016/11/03/red-hat-business-value-competition-1st-place-winners-interview-darius-barusauskas/
 #https://github.com/ledell/useR-machine-learning-tutorial/blob/master/gradient-boosting-machines.Rmd
 
-WIN <- TRUE
+WIN <- FALSE
 if (WIN) {setwd("C:/repos/eclipse/santander_xgb/redhatXgboostRadar/code/")}else
-{setwd('~/dataScience/workspace/santander/code/xgboostRadar')}
+{setwd('~/git/santander_xgb/santander_xgb/redhatXgboostRadar/input/')}
 
 # data preparation  -------------------------------------------------------------------
 
@@ -52,6 +55,8 @@ gc()
 
 D=rbind(d1,d2)
 D$i=1:dim(D)[1]
+#se ha creado una matriz combinada con el test y el train, a parte de eso se ha guardado un indice el i
+#
 
 # uncomment this for CV run  -------------------------------------------------------------------
 
@@ -63,7 +68,7 @@ valid <- which(d1$people_id %in% valid_p)
 model <- (1:length(d1$people_id))[-valid]
 ###uncomment 
 
-
+#se guarda el indice the test y se borra el resto de dataset
 test_activity_id=test$activity_id
 rm(train,test,d1,d2);gc()
 
@@ -80,7 +85,7 @@ for (f in char.cols) {
   }
 }
 
-
+#se coge todos los chars y se los convierte en numeros .. atencion que la moayoria de ellos eran cero o uno
 D.sparse=
   cBind(sparseMatrix(D$i,D$activity_category),
         sparseMatrix(D$i,D$people_group_1),
@@ -102,6 +107,8 @@ D.sparse=
         sparseMatrix(D$i,D$people_char_8),
         sparseMatrix(D$i,D$people_char_9)
   )
+
+#se crea una matriz sparse con las caracteristicas de people
 
 D.sparse=
   cBind(D.sparse,
@@ -135,6 +142,7 @@ D.sparse=
         D$people_char_37,
         D$people_char_38,
         D$binay_sum)
+#se crea otra matriz con otra matriz sparse con el resto de caracteristicas
 
 train.sparse=D.sparse[1:row.train,]
 test.sparse=D.sparse[(row.train+1):nrow(D.sparse),]
